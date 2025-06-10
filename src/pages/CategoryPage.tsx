@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Products, getProductsByCategory, searchProducts, brands, products } from '@/data/products';
+import { Product, getProductsByCategory, searchProducts, brands, products } from '@/data/products';
 
 const CategoryPage = () => {
   const { category } = useParams<{ category: string }>();
@@ -20,7 +19,7 @@ const CategoryPage = () => {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState('bestselling');
-  const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   // Initialize or update filtered products
   useEffect(() => {
