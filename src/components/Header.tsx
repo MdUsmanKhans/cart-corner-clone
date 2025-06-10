@@ -31,6 +31,7 @@ const Header = () => {
     { href: '/category/sports', label: 'Sports' },
     { href: '/category/beauty', label: 'Beauty' },
     { href: '/category/books', label: 'Books' },
+    { href: '/components', label: 'Components Demo' },
   ];
 
   return (
