@@ -1,46 +1,69 @@
 
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Heart, Share } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ShoppingCart, Heart, Share, ArrowLeft, Plus, Minus } from 'lucide-react';
+import { getProductById } from '@/data/products';
+import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 
 const ProductPage = () => {
   const { id } = useParams();
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const { addToCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  // Mock product data
-  const product = {
-    id: 1,
-    name: 'iPhone 15 Pro Max 256GB - Natural Titanium',
-    price: 1199,
-    originalPrice: 1299,
-    images: [
-      'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&h=600&fit=crop',
-    ],
-    rating: 4.8,
-    reviews: 1245,
-    inStock: true,
-    description: 'The iPhone 15 Pro Max features a titanium design, advanced camera system, and powerful A17 Pro chip. Experience next-level performance and photography.',
-    features: [
-      'A17 Pro chip for incredible performance',
-      'Pro camera system with 5x Telephoto',
-      'Titanium design - strong yet lightweight',
-      'All-day battery life',
-      'USB-C connectivity'
-    ]
+  const product = getProductById(Number(id));
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <h1 className="text-3xl font-bold mb-4">Product Not Found</h1>
+          <p className="text-muted-foreground mb-8">The product you're looking for doesn't exist.</p>
+          <Link to="/">
+            <Button>Back to Home</Button>
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const handleAddToCart = () => {
+    addToCart(product, quantity);
   };
+
+  const handleWishlistToggle = () => {
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
+  };
+
+  const discountPercentage = product.originalPrice 
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-primary">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Shopping
+          </Link>
+        </div>
+
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Product Images */}
           <div className="space-y-4">
@@ -51,12 +74,12 @@ const ProductPage = () => {
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 overflow-x-auto pb-2">
               {product.images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`w-20 h-20 rounded-lg overflow-hidden border-2 ${
+                  className={`w-20 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 ${
                     selectedImage === index ? 'border-primary' : 'border-muted'
                   }`}
                 >
@@ -73,6 +96,11 @@ const ProductPage = () => {
           {/* Product Details */}
           <div className="space-y-6">
             <div>
+              <div className="flex items-center space-x-2 mb-1">
+                <Badge variant="secondary" className="text-xs">{product.category}</Badge>
+                <Badge variant="outline" className="text-xs">{product.brand}</Badge>
+              </div>
+              
               <h1 className="text-3xl font-bold text-foreground mb-4">
                 {product.name}
               </h1>
@@ -101,9 +129,20 @@ const ProductPage = () => {
                     ${product.originalPrice}
                   </span>
                 )}
-                <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-sm font-semibold">
-                  Save ${(product.originalPrice || 0) - product.price}
-                </span>
+                {discountPercentage > 0 && (
+                  <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-sm font-semibold">
+                    Save ${(product.originalPrice || 0) - product.price} ({discountPercentage}% off)
+                  </span>
+                )}
+              </div>
+
+              <p className="text-muted-foreground mb-4">{product.description}</p>
+
+              <div className="flex items-center mb-4">
+                <div className="text-muted-foreground mr-2">Availability:</div>
+                <div className={`font-medium ${product.inStock ? 'text-green-600' : 'text-red-500'}`}>
+                  {product.inStock ? `In Stock (${product.stockCount} left)` : 'Out of Stock'}
+                </div>
               </div>
             </div>
 
@@ -116,30 +155,44 @@ const ProductPage = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={!product.inStock}
                     >
-                      -
+                      <Minus className="h-4 w-4" />
                     </Button>
                     <span className="w-12 text-center">{quantity}</span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() => setQuantity(Math.min(product.stockCount, quantity + 1))}
+                      disabled={!product.inStock}
                     >
-                      +
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <Button size="lg" className="w-full">
+                  <Button 
+                    size="lg" 
+                    className="w-full"
+                    onClick={handleAddToCart}
+                    disabled={!product.inStock}
+                  >
                     <ShoppingCart className="h-5 w-5 mr-2" />
-                    Add to Cart - ${product.price * quantity}
+                    {product.inStock ? `Add to Cart - $${(product.price * quantity).toFixed(2)}` : 'Out of Stock'}
                   </Button>
                   
                   <div className="flex space-x-3">
-                    <Button variant="outline" size="lg" className="flex-1">
-                      <Heart className="h-4 w-4 mr-2" />
-                      Wishlist
+                    <Button 
+                      variant={isInWishlist(product.id) ? "default" : "outline"} 
+                      size="lg" 
+                      className="flex-1"
+                      onClick={handleWishlistToggle}
+                    >
+                      <Heart 
+                        className={`h-4 w-4 mr-2 ${isInWishlist(product.id) ? 'fill-current' : ''}`} 
+                      />
+                      {isInWishlist(product.id) ? 'Added to Wishlist' : 'Add to Wishlist'}
                     </Button>
                     <Button variant="outline" size="lg" className="flex-1">
                       <Share className="h-4 w-4 mr-2" />
@@ -151,10 +204,7 @@ const ProductPage = () => {
             </Card>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Product Description</h3>
-              <p className="text-muted-foreground">{product.description}</p>
-              
-              <h4 className="text-lg font-semibold">Key Features</h4>
+              <h3 className="text-xl font-semibold">Key Features</h3>
               <ul className="space-y-2">
                 {product.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
@@ -163,6 +213,16 @@ const ProductPage = () => {
                   </li>
                 ))}
               </ul>
+              
+              <h3 className="text-xl font-semibold pt-4">Specifications</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {Object.entries(product.specifications).map(([key, value]) => (
+                  <div key={key} className="flex justify-between border-b border-border py-2">
+                    <span className="font-medium">{key}</span>
+                    <span className="text-muted-foreground">{value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

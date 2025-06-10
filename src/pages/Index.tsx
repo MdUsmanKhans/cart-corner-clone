@@ -15,16 +15,19 @@ const Index = () => {
       <ProductSection 
         title="Flash Sales" 
         subtitle="Limited time offers - grab them before they're gone!"
+        type="flash-sale"
       />
       <div className="bg-muted py-8">
         <ProductSection 
           title="Trending Products" 
           subtitle="Most popular items our customers are loving right now"
+          type="trending"
         />
       </div>
       <ProductSection 
         title="New Arrivals" 
         subtitle="Fresh products just added to our collection"
+        type="new-arrivals"
       />
       <Footer />
     </div>

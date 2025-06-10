@@ -1,81 +1,109 @@
 
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
+import { Products, getProductsByCategory, searchProducts, brands, products } from '@/data/products';
 
 const CategoryPage = () => {
-  const { category } = useParams();
-  const [priceRange, setPriceRange] = useState([0, 2000]);
+  const { category } = useParams<{ category: string }>();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const searchQuery = queryParams.get('q');
+
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState('bestselling');
+  const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
 
-  // Mock products for the category
-  const products = [
-    {
-      id: 1,
-      name: 'iPhone 15 Pro Max 256GB - Natural Titanium',
-      price: 1199,
-      originalPrice: 1299,
-      image: 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=300&h=300&fit=crop',
-      rating: 4.8,
-      reviews: 1245,
-      discount: 8
-    },
-    {
-      id: 2,
-      name: 'MacBook Pro 14" M3 Chip with 8-Core CPU',
-      price: 1599,
-      originalPrice: 1799,
-      image: 'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=300&h=300&fit=crop',
-      rating: 4.9,
-      reviews: 892,
-      discount: 11
-    },
-    {
-      id: 3,
-      name: 'Sony WH-1000XM5 Wireless Noise Canceling Headphones',
-      price: 299,
-      originalPrice: 399,
-      image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=300&h=300&fit=crop',
-      rating: 4.7,
-      reviews: 2156,
-      discount: 25
-    },
-    {
-      id: 4,
-      name: 'Samsung 55" QLED 4K Smart TV',
-      price: 799,
-      originalPrice: 999,
-      image: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=300&h=300&fit=crop',
-      rating: 4.6,
-      reviews: 687,
-      discount: 20
-    },
-    {
-      id: 5,
-      name: 'iPad Air 11" M2 Chip',
-      price: 599,
-      originalPrice: 699,
-      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=300&h=300&fit=crop',
-      rating: 4.5,
-      reviews: 934,
-      discount: 14
-    },
-    {
-      id: 6,
-      name: 'Canon EOS R6 Mark II Mirrorless Camera',
-      price: 2099,
-      image: 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=300&h=300&fit=crop',
-      rating: 4.9,
-      reviews: 456,
+  // Initialize or update filtered products
+  useEffect(() => {
+    let productsToFilter = [];
+    
+    if (searchQuery) {
+      productsToFilter = searchProducts(searchQuery);
+    } else if (category === 'all') {
+      productsToFilter = products;
+    } else if (category) {
+      productsToFilter = getProductsByCategory(category);
+    } else {
+      productsToFilter = products;
     }
-  ];
+    
+    setFilteredProducts(productsToFilter);
+  }, [category, searchQuery]);
+  
+  // Apply filters
+  const applyFilters = () => {
+    let result = searchQuery
+      ? searchProducts(searchQuery)
+      : category === 'all'
+      ? products
+      : category
+      ? getProductsByCategory(category)
+      : products;
 
-  const brands = ['Apple', 'Samsung', 'Sony', 'Canon', 'Dell', 'HP'];
+    // Filter by price
+    result = result.filter(
+      (product) => product.price >= priceRange[0] && product.price <= priceRange[1]
+    );
+
+    // Filter by selected brands
+    if (selectedBrands.length > 0) {
+      result = result.filter((product) => selectedBrands.includes(product.brand));
+    }
+
+    // Filter by rating
+    if (selectedRating) {
+      result = result.filter((product) => Math.floor(product.rating) >= selectedRating);
+    }
+
+    // Sort products
+    switch (sortBy) {
+      case 'price-low-high':
+        result = [...result].sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high-low':
+        result = [...result].sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        result = [...result].sort((a, b) => b.rating - a.rating);
+        break;
+      case 'newest':
+        // In a real app, we'd sort by date added
+        result = [...result].reverse();
+        break;
+      default:
+        // bestselling - sort by reviews count as a proxy for popularity
+        result = [...result].sort((a, b) => b.reviews - a.reviews);
+    }
+    
+    setFilteredProducts(result);
+  };
+
+  // Apply filters when dependencies change
+  useEffect(() => {
+    applyFilters();
+  }, [priceRange, selectedBrands, selectedRating, sortBy, category, searchQuery]);
+
+  const clearFilters = () => {
+    setPriceRange([0, 2000]);
+    setSelectedBrands([]);
+    setSelectedRating(null);
+    setSortBy('bestselling');
+  };
+
+  const pageTitle = searchQuery
+    ? `Search Results for "${searchQuery}"`
+    : category === 'all'
+    ? 'All Products'
+    : category;
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,22 +121,18 @@ const CategoryPage = () => {
                 {/* Price Range */}
                 <div>
                   <h4 className="font-semibold mb-3">Price Range</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="under100" />
-                      <label htmlFor="under100" className="text-sm">Under $100</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="100-500" />
-                      <label htmlFor="100-500" className="text-sm">$100 - $500</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="500-1000" />
-                      <label htmlFor="500-1000" className="text-sm">$500 - $1000</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="over1000" />
-                      <label htmlFor="over1000" className="text-sm">Over $1000</label>
+                  <div className="px-2">
+                    <Slider
+                      defaultValue={priceRange}
+                      min={0}
+                      max={2000}
+                      step={10}
+                      value={priceRange}
+                      onValueChange={(values) => setPriceRange(values as [number, number])}
+                    />
+                    <div className="flex justify-between mt-2 text-sm">
+                      <span>${priceRange[0]}</span>
+                      <span>${priceRange[1]}</span>
                     </div>
                   </div>
                 </div>
@@ -142,7 +166,13 @@ const CategoryPage = () => {
                   <div className="space-y-2">
                     {[4, 3, 2, 1].map((rating) => (
                       <div key={rating} className="flex items-center space-x-2">
-                        <Checkbox id={`rating-${rating}`} />
+                        <Checkbox 
+                          id={`rating-${rating}`}
+                          checked={selectedRating === rating}
+                          onCheckedChange={(checked) => {
+                            setSelectedRating(checked ? rating : null);
+                          }}
+                        />
                         <label htmlFor={`rating-${rating}`} className="text-sm flex items-center">
                           <span className="text-yellow-400 mr-1">
                             {'★'.repeat(rating)}{'☆'.repeat(5-rating)}
@@ -154,7 +184,7 @@ const CategoryPage = () => {
                   </div>
                 </div>
 
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" onClick={clearFilters}>
                   Clear Filters
                 </Button>
               </CardContent>
@@ -165,37 +195,40 @@ const CategoryPage = () => {
           <div className="flex-1">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-3xl font-bold capitalize">{category || 'All Products'}</h1>
-                <p className="text-muted-foreground">{products.length} products found</p>
+                <h1 className="text-3xl font-bold capitalize">{pageTitle}</h1>
+                <p className="text-muted-foreground">{filteredProducts.length} products found</p>
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm">Sort by:</span>
-                <select className="border rounded px-3 py-2 text-sm">
-                  <option>Best Match</option>
-                  <option>Price: Low to High</option>
-                  <option>Price: High to Low</option>
-                  <option>Customer Rating</option>
-                  <option>Newest</option>
+                <select 
+                  className="border rounded px-3 py-2 text-sm"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="bestselling">Best Selling</option>
+                  <option value="price-low-high">Price: Low to High</option>
+                  <option value="price-high-low">Price: High to Low</option>
+                  <option value="rating">Customer Rating</option>
+                  <option value="newest">Newest</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-
-            {/* Pagination */}
-            <div className="flex justify-center mt-12">
-              <div className="flex space-x-2">
-                <Button variant="outline" disabled>Previous</Button>
-                <Button variant="default">1</Button>
-                <Button variant="outline">2</Button>
-                <Button variant="outline">3</Button>
-                <Button variant="outline">Next</Button>
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-16">
+                <h2 className="text-2xl font-semibold mb-4">No products found</h2>
+                <p className="text-muted-foreground mb-8">
+                  Try changing your filters or search criteria
+                </p>
+                <Button onClick={clearFilters}>Clear Filters</Button>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
