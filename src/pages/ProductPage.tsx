@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -6,10 +5,10 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Heart, Share, ArrowLeft, Plus, Minus } from 'lucide-react';
-import { getProductById } from '@/data/products';
+import { ShoppingCart, Heart, Share, ArrowLeft, Plus, Minus, Loader2 } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
+import { useProduct } from '@/hooks/useProducts';
 
 const ProductPage = () => {
   const { id } = useParams();
@@ -18,9 +17,24 @@ const ProductPage = () => {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  const product = getProductById(Number(id));
+  const { data: product, isLoading, error } = useProduct(Number(id));
 
-  if (!product) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading product...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !product) {
     return (
       <div className="min-h-screen bg-background">
         <Header />

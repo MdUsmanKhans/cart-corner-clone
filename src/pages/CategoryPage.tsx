@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -7,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Product, getProductsByCategory, searchProducts, brands, products } from '@/data/products';
+import { Product } from '@/data/products';
+import { useProducts, useProductsByCategory, useSearchProducts } from '@/hooks/useProducts';
+import { Loader2 } from 'lucide-react';
 
 const CategoryPage = () => {
   const { category } = useParams<{ category: string }>();
@@ -21,32 +24,39 @@ const CategoryPage = () => {
   const [sortBy, setSortBy] = useState('bestselling');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
-  // Initialize or update filtered products
-  useEffect(() => {
-    let productsToFilter = [];
-    
-    if (searchQuery) {
-      productsToFilter = searchProducts(searchQuery);
-    } else if (category === 'all') {
-      productsToFilter = products;
-    } else if (category) {
-      productsToFilter = getProductsByCategory(category);
-    } else {
-      productsToFilter = products;
-    }
-    
-    setFilteredProducts(productsToFilter);
-  }, [category, searchQuery]);
-  
+  // Fetch data based on the route
+  const { data: allProducts, isLoading: isLoadingAll } = useProducts();
+  const { data: categoryProducts, isLoading: isLoadingCategory } = useProductsByCategory(
+    category && category !== 'all' ? category : ''
+  );
+  const { data: searchResults, isLoading: isLoadingSearch } = useSearchProducts(searchQuery || '');
+
+  // Determine which products to use
+  const sourceProducts = searchQuery 
+    ? searchResults 
+    : category === 'all' 
+    ? allProducts 
+    : category 
+    ? categoryProducts 
+    : allProducts;
+
+  const isLoading = searchQuery ? isLoadingSearch : category === 'all' ? isLoadingAll : isLoadingCategory;
+
+  // Get unique brands from current products
+  const availableBrands = React.useMemo(() => {
+    if (!sourceProducts) return [];
+    const brands = [...new Set(sourceProducts.map(product => product.brand))];
+    return brands.sort();
+  }, [sourceProducts]);
+
   // Apply filters
-  const applyFilters = () => {
-    let result = searchQuery
-      ? searchProducts(searchQuery)
-      : category === 'all'
-      ? products
-      : category
-      ? getProductsByCategory(category)
-      : products;
+  const applyFilters = React.useCallback(() => {
+    if (!sourceProducts) {
+      setFilteredProducts([]);
+      return;
+    }
+
+    let result = [...sourceProducts];
 
     // Filter by price
     result = result.filter(
@@ -75,8 +85,7 @@ const CategoryPage = () => {
         result = [...result].sort((a, b) => b.rating - a.rating);
         break;
       case 'newest':
-        // In a real app, we'd sort by date added
-        result = [...result].reverse();
+        result = [...result].sort((a, b) => b.id - a.id);
         break;
       default:
         // bestselling - sort by reviews count as a proxy for popularity
@@ -84,12 +93,12 @@ const CategoryPage = () => {
     }
     
     setFilteredProducts(result);
-  };
+  }, [sourceProducts, priceRange, selectedBrands, selectedRating, sortBy]);
 
   // Apply filters when dependencies change
   useEffect(() => {
     applyFilters();
-  }, [priceRange, selectedBrands, selectedRating, sortBy, category, searchQuery]);
+  }, [applyFilters]);
 
   const clearFilters = () => {
     setPriceRange([0, 2000]);
@@ -103,6 +112,21 @@ const CategoryPage = () => {
     : category === 'all'
     ? 'All Products'
     : category;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading products...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -137,27 +161,29 @@ const CategoryPage = () => {
                 </div>
 
                 {/* Brands */}
-                <div>
-                  <h4 className="font-semibold mb-3">Brands</h4>
-                  <div className="space-y-2">
-                    {brands.map((brand) => (
-                      <div key={brand} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={brand}
-                          checked={selectedBrands.includes(brand)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedBrands([...selectedBrands, brand]);
-                            } else {
-                              setSelectedBrands(selectedBrands.filter(b => b !== brand));
-                            }
-                          }}
-                        />
-                        <label htmlFor={brand} className="text-sm">{brand}</label>
-                      </div>
-                    ))}
+                {availableBrands.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3">Brands</h4>
+                    <div className="space-y-2">
+                      {availableBrands.map((brand) => (
+                        <div key={brand} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={brand}
+                            checked={selectedBrands.includes(brand)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedBrands([...selectedBrands, brand]);
+                              } else {
+                                setSelectedBrands(selectedBrands.filter(b => b !== brand));
+                              }
+                            }}
+                          />
+                          <label htmlFor={brand} className="text-sm">{brand}</label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Rating */}
                 <div>
